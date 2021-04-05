@@ -8,6 +8,6 @@ RUN useradd --create-home appuser
 WORKDIR /home/appuser
 USER appuser
 
-COPY simple_ocr .
+COPY . .
 
-CMD [ "python", "simple_ocr/main.py" ]
+CMD [ "python", "./main.py" ]
