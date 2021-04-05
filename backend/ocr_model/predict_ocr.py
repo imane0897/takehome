@@ -4,28 +4,30 @@ import numpy as np
 import argparse
 import imutils
 import cv2
+import os
 
 
-def predict_image(file_path):
+def predict_image(imgstr):
     """
     Used to be called externally to OCR letters from image.
 
     :param file_path: file path of the image to be OCR(ed)
     :return: list of letter strings
     """
-    preds = predict(file_path)
+    npimg = np.fromstring(imgstr, np.uint8)
+    img = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
+    preds = predict(img)
     return get_predictions(preds)
 
 
-def predict(file_path):
+def predict(image):
     """
-    Read image, pre-process, predict with trained Tensorflow model.
+    Pre-process, predict with trained Tensorflow model.
 
     :param file_path: file path of image
     :return: list of predictions in floats
     """
-    model = load_model('ocr.model')
-    image = cv2.imread(file_path)
+    model = load_model(os.getcwd() + '/ocr_model/ocr.model')
 
     # convert to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -49,8 +51,8 @@ def predict(file_path):
         # nor too large
         if (w >= 5 and w <= 150) and (h >= 15 and h <= 120):
             roi = gray[y:y + h, x:x + w]
-            thresh = cv2.threshold(roi, 0, 255,
-                          cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
+            thresh = cv2.threshold(
+                roi, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
             (tH, tW) = thresh.shape
 
             # if the width is greater than the height, resize along the
@@ -67,9 +69,8 @@ def predict(file_path):
             dX = int(max(0, 32 - tW) / 2.0)
             dY = int(max(0, 32 - tH) / 2.0)
 
-            padded = cv2.copyMakeBorder(thresh, top=dY, bottom=dY,
-                               left=dX, right=dX, borderType=cv2.BORDER_CONSTANT,
-                               value=(0, 0, 0))
+            padded = cv2.copyMakeBorder(
+                thresh, top=dY, bottom=dY, left=dX, right=dX, borderType=cv2.BORDER_CONSTANT, value=(0, 0, 0))
             padded = cv2.resize(padded, (32, 32))
             padded = padded.astype("float32") / 255.0
             padded = np.expand_dims(padded, axis=-1)
@@ -83,7 +84,7 @@ def predict(file_path):
 
     # OCR the characters using our handwriting recognition model
     return model.predict(chars)
-    
+
 
 def get_predictions(preds):
     """
@@ -104,7 +105,8 @@ def get_predictions(preds):
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
-    ap.add_argument("-i", "--image", required=True, 
-                    help="path to input image")
+    ap.add_argument("-i", "--image", required=True, help="path to input image")
     args = vars(ap.parse_args())
-    print(predict_image(args["image"]))
+    image = cv2.imread(args["image"])
+    preds = predict(img)
+    print(get_predictions(preds))
