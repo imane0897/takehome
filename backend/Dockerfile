@@ -10,4 +10,5 @@ USER appuser
 
 COPY . .
 
-CMD [ "python", "./main.py" ]
+RUN export FLASK_APP=main.py
+CMD [ "python", "-m", "flask", "run"]
