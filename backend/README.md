@@ -12,14 +12,36 @@
 │  ├──train_ocr_model.py
 │  └──ocr.model
 │
+├──test_images
+|  ├──1.png
+|  ├──2.png
+|  ├──3.png
+|  └──4.png
+│
 ├──main.py
 │
 ├──Dockerfile
+│
 └──requirements.txt
+```
+
+## Usage
+
+部署
+```shell
+
+```
+
+使用
+```shell
+curl -F "image=@test_images/1.png" localhost:5000/ocr_image
 ```
 
 ## API
 
+```shell
+POST /ocr_image
+```
 
 ## References
 [1] [OCR with Keras, TensorFlow, and Deep Learning](https://www.pyimagesearch.com/2020/08/17/ocr-with-keras-tensorflow-and-deep-learning/)
