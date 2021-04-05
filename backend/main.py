@@ -25,21 +25,21 @@ def close_connection(exception):
 
 @app.route('/ocr_image', methods=['POST'])
 def ocr_image():
-    # read image
+    # read image and hash it with sha256
     imgstr = request.files.get('image').read()
+    hash_digest = hashlib.sha256(imgstr).hexdigest()
 
     # predict letters in image and save in dict
     get_letters = predict_image(imgstr)
     letters = {'content': get_letters}
 
     # save image and prediction in sqlite
-    # id is sha256(image)
     sql_insert_image = '''INSERT INTO image (id, letters) VALUES (?, ?)'''
-    cur = get_db().cursor().execute(sql_insert_image,
-                                    (hashlib.sha256(imgstr).hexdigest(), 
-                                    ''.join(get_letters)))
-    cur.commit()
-    
+    db = get_db()
+    db.cursor().execute(sql_insert_image, 
+                        (hash_digest, ''.join(get_letters)))
+    db.commit()
+
     return letters
 
 
@@ -50,8 +50,9 @@ def setup_app(app):
                                 letters TEXT
                                 );'''
     try:
-        cur = get_db().cursor().execute(sql_create_image_table)
-        cur.commit()
+        db = get_db()
+        db.cursor().execute(sql_create_image_table)
+        db.commit()
     except Exception as e:
         print(e)
 
