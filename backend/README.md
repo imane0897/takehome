@@ -19,6 +19,8 @@
 |  └──4.png
 │
 ├──main.py
+|
+├──database.db
 │
 ├──Dockerfile
 │
@@ -29,11 +31,13 @@
 
 部署
 ```shell
-
+cd backend
+docker-compose up
 ```
 
 使用
 ```shell
+cd backend
 curl -F "image=@test_images/1.png" localhost:5000/ocr_image
 ```
 
