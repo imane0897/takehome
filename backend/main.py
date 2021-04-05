@@ -27,16 +27,19 @@ def close_connection(exception):
 def ocr_image():
     # read image
     imgstr = request.files.get('image').read()
-    readable_hash = hashlib.sha256(imgstr).hexdigest()
 
     # predict letters in image and save in dict
     get_letters = predict_image(imgstr)
     letters = {'content': get_letters}
 
     # save image and prediction in sqlite
+    # id is sha256(image)
     sql_insert_image = '''INSERT INTO image (id, letters) VALUES (?, ?)'''
     cur = get_db().cursor().execute(sql_insert_image,
-                                    (readable_hash, ''.join(get_letters)))
+                                    (hashlib.sha256(imgstr).hexdigest(), 
+                                    ''.join(get_letters)))
+    cur.commit()
+    
     return letters
 
 
