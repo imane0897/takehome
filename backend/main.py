@@ -1,11 +1,14 @@
 import os
 import hashlib
+import queue
 import sqlite3
+import threading
 from flask import Flask, request, g
 from ocr_model.predict_ocr import predict_image
 
 app = Flask(__name__)
 DATABASE = os.getcwd() + '/database.db'
+PREDICT_QUEUE = queue.Queue()
 
 
 def get_db():
@@ -30,11 +33,12 @@ def upload_image():
     """
     imgstr = request.files.get('image').read()
     hash_digest = hashlib.sha256(imgstr).hexdigest()
-    make_predictions(imgstr, hash_digest)
+    if not find_predictions(hash_digest):
+        PREDICT_QUEUE.put(imgstr)
     return hash_digest, 202
 
 
-def make_predictions(imgstr, hash_digest):
+def find_predictions(hash_digest):
     """
     Query sqlite, caculate new predictions and insert it 
     to sqlite when it's not in.
@@ -43,15 +47,7 @@ def make_predictions(imgstr, hash_digest):
     cur = db.cursor()
     cur.execute("SELECT * FROM image WHERE id=?", (hash_digest,))
     rows = cur.fetchall()
-
-    if not rows:
-        # predict letters in image and save in dict
-        preds = predict_image(imgstr)
-
-        # save image and prediction in sqlite
-        sql_insert_image = '''INSERT INTO image (id, letters) VALUES (?, ?)'''
-        cur.execute(sql_insert_image, (hash_digest, ''.join(preds)))
-        db.commit()
+    return True if rows else False
 
 
 @app.route('/get_predictions', methods=['GET'])
@@ -63,8 +59,7 @@ def get_predictions():
     hash_digest = request.args.get('hash_digest')
 
     # query sqlite
-    db = get_db()
-    cur = db.cursor()
+    cur = get_db().cursor()
     cur.execute("SELECT * FROM image WHERE id=?", (hash_digest,))
     rows = cur.fetchall()
 
@@ -74,10 +69,32 @@ def get_predictions():
         preds = {'content': list(letters)}
         return preds, 200
     else:
-        return 423
+        return {"msg": "Please wait for a second and retry."}, 423
+
+
+def predict():
+    db = sqlite3.connect(DATABASE)
+    while True:
+        if not PREDICT_QUEUE.empty():
+            imgstr = PREDICT_QUEUE.get()
+            # predict letters in image and save in dict
+            preds = predict_image(imgstr)
+
+            # save image and prediction in sqlite
+            sql_insert_image = '''
+                                INSERT INTO image (id, letters) VALUES (?, ?)
+                                '''
+            db.cursor().execute(sql_insert_image,
+                                (hashlib.sha256(imgstr).hexdigest(), 
+                                ''.join(preds)))
+            db.commit()
 
 
 def setup_app(app):
+    """
+    Set up at the start of the server.
+    :param app: this Flask app
+    """
     # create table to save image and predictions
     sql_create_image_table = '''CREATE TABLE IF NOT EXISTS image(
                                 id VARCHAR(64) PRIMARY KEY,
@@ -89,6 +106,9 @@ def setup_app(app):
         db.commit()
     except Exception as e:
         print(e)
+
+    # a background thread to handle the prediction process
+    threading.Thread(target=predict, daemon=True).start()
 
 
 setup_app(app)
