@@ -6,7 +6,6 @@ from ocr_model.predict_ocr import predict_image
 
 app = Flask(__name__)
 DATABASE = os.getcwd() + '/database.db'
-print(DATABASE)
 
 
 def get_db():
@@ -23,24 +22,59 @@ def close_connection(exception):
         db.close()
 
 
-@app.route('/ocr_image', methods=['POST'])
-def ocr_image():
-    # read image and hash it with sha256
+@app.route('/upload_image', methods=['POST'])
+def upload_image():
+    """
+    Receive image POST from clients.
+    :return: sha256 hash digest of the image
+    """
     imgstr = request.files.get('image').read()
     hash_digest = hashlib.sha256(imgstr).hexdigest()
+    make_predictions(imgstr, hash_digest)
+    return hash_digest, 202
 
-    # predict letters in image and save in dict
-    get_letters = predict_image(imgstr)
-    letters = {'content': get_letters}
 
-    # save image and prediction in sqlite
-    sql_insert_image = '''INSERT INTO image (id, letters) VALUES (?, ?)'''
+def make_predictions(imgstr, hash_digest):
+    """
+    Query sqlite, caculate new predictions and insert it 
+    to sqlite when it's not in.
+    """
     db = get_db()
-    db.cursor().execute(sql_insert_image, 
-                        (hash_digest, ''.join(get_letters)))
-    db.commit()
+    cur = db.cursor()
+    cur.execute("SELECT * FROM image WHERE id=?", (hash_digest,))
+    rows = cur.fetchall()
 
-    return letters
+    if not rows:
+        # predict letters in image and save in dict
+        preds = predict_image(imgstr)
+
+        # save image and prediction in sqlite
+        sql_insert_image = '''INSERT INTO image (id, letters) VALUES (?, ?)'''
+        cur.execute(sql_insert_image, (hash_digest, ''.join(preds)))
+        db.commit()
+
+
+@app.route('/get_predictions', methods=['GET'])
+def get_predictions():
+    """
+    Query sqlite and return predictions when it's ready
+    or return error if the predictions are not completed.
+    """
+    hash_digest = request.args.get('hash_digest')
+
+    # query sqlite
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("SELECT * FROM image WHERE id=?", (hash_digest,))
+    rows = cur.fetchall()
+
+    # if predictions exist
+    if rows:
+        letters = rows[0][1]
+        preds = {'content': list(letters)}
+        return preds, 200
+    else:
+        return 423
 
 
 def setup_app(app):
