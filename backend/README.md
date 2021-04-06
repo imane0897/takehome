@@ -15,8 +15,7 @@
 ├──test_images
 |  ├──1.png
 |  ├──2.png
-|  ├──3.png
-|  └──4.png
+|  └──3.png
 │
 ├──main.py
 |
@@ -32,19 +31,22 @@
 部署
 ```shell
 cd backend
-docker-compose up
+export FLASK_APP=main.py
+flask run
 ```
 
 使用
 ```shell
 cd backend
 curl -F "image=@test_images/1.png" localhost:5000/ocr_image
+[GET] localhost:5000/get_predictions?hash_digest=[hash_digest]
 ```
 
 ## API
 
 ```shell
-POST /ocr_image
+POST /upload_image
+GET /get_predictions?hash_digest=[hash_digest]
 ```
 
 ## References
